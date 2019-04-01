@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import com.example.pureweather.db.City;
 import com.example.pureweather.db.County;
 import com.example.pureweather.db.Province;
+import com.example.pureweather.gson.AQIWeather;
 import com.example.pureweather.gson.Weather;
 import com.google.gson.Gson;
 
@@ -17,9 +18,21 @@ public class Utility {
     public static Weather handleWeatherResponse(String response){
         try {
             JSONObject jsonObject = new JSONObject(response);
-            JSONArray jsonArray = jsonObject.getJSONArray("HeWeather");
+            JSONArray jsonArray = jsonObject.getJSONArray("HeWeather6");
             String weatherContent = jsonArray.get(0).toString();
             return new Gson().fromJson(weatherContent, Weather.class);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static AQIWeather handleAQIWeatherResponse(String response){
+        try {
+            JSONObject jsonObject = new JSONObject(response);
+            JSONArray jsonArray = jsonObject.getJSONArray("HeWeather6");
+            String aqiweatherContent = jsonArray.get(0).toString();
+            return new Gson().fromJson(aqiweatherContent, AQIWeather.class);
         } catch (JSONException e) {
             e.printStackTrace();
         }

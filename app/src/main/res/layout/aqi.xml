@@ -8,12 +8,11 @@
     android:background="#8000">
 
     <TextView
-        android:id="@+id/date_text"
+        android:id="@+id/aqititle_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginLeft="15dp"
         android:layout_marginTop="15dp"
-        android:text="空气质量"
         android:textColor="#fff"
         android:textSize="20sp"/>
 

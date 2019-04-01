@@ -3,13 +3,11 @@ package com.example.pureweather;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.os.Debug;
 import android.preference.PreferenceManager;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -20,7 +18,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.example.pureweather.gson.Forecast;
+import com.example.pureweather.gson.AQIWeather;
+import com.example.pureweather.gson.Daily_Forecast;
 import com.example.pureweather.gson.Weather;
 import com.example.pureweather.service.AutoUpdateService;
 import com.example.pureweather.util.HttpUtil;
@@ -47,10 +46,11 @@ public class WeatherActivity extends AppCompatActivity {
     private TextView degreeText;
     private TextView weatherInfoText;
     private LinearLayout forecastLayout;
+    private TextView aqititleText;
     private TextView aqiText;
     private TextView pm25Text;
     private TextView comfortText;
-    private TextView carWashText;
+    private TextView drsgText;
     private TextView sportText;
 
     @Override
@@ -82,21 +82,25 @@ public class WeatherActivity extends AppCompatActivity {
         degreeText = (TextView) findViewById(R.id.degree_text);
         weatherInfoText = (TextView) findViewById(R.id.weather_info_text);
         forecastLayout = (LinearLayout) findViewById(R.id.forecast_layout);
+        aqititleText = (TextView) findViewById(R.id.aqititle_text);
         aqiText = (TextView) findViewById(R.id.aqi_text);
         pm25Text = (TextView) findViewById(R.id.pm25_text);
         comfortText = (TextView) findViewById(R.id.comfort_text);
-        carWashText = (TextView) findViewById(R.id.car_wash_text);
+        drsgText = (TextView) findViewById(R.id.drsg_text);
         sportText = (TextView) findViewById(R.id.sport_text);
 
         //获取缓存
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather",null);
+        String aqiweatherString = prefs.getString("aqiweather",null);
 
         //判断有无缓存
-        if(weatherString!=null){
+        if(weatherString!=null || aqiweatherString!=null){
             Weather weather = Utility.handleWeatherResponse(weatherString);
+            AQIWeather aqiweather = Utility.handleAQIWeatherResponse(aqiweatherString);
             weatherId = weather.basic.weatherId;
             ShowWeatherInfo(weather);
+            ShowAQIWeatherInfo(aqiweather);
         }else{
             weatherId = getIntent().getStringExtra("weather_id");
             weatherLayout.setVisibility(View.INVISIBLE);
@@ -117,9 +121,10 @@ public class WeatherActivity extends AppCompatActivity {
 
     }
 
-    //发送http请求获取json数据并解析
+    //发送https请求获取json数据并解析，因为气温和空气质量来源不同站点，故发送两个请求
     public void requestWeather(String weatherId){
-        String WeatherUrl = "http://guolin.tech/api/weather?cityid="+weatherId;
+
+        String WeatherUrl = "https://free-api.heweather.net/s6/weather?key=2b11b941d5124167a040184940875db1&location="+weatherId;
         HttpUtil.sendOkHttpRequest(WeatherUrl, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -154,13 +159,48 @@ public class WeatherActivity extends AppCompatActivity {
                 });
             }
         });
+        String AqiUrl = "https://free-api.heweather.net/s6/air/now?key=2b11b941d5124167a040184940875db1&location="+weatherId;
+        HttpUtil.sendOkHttpRequest(AqiUrl, new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(WeatherActivity.this,"获取天气信息失败",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+                swipeRefresh.setRefreshing(false);
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final String responseText = response.body().string();
+                final AQIWeather aqiweather = Utility.handleAQIWeatherResponse(responseText);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if(aqiweather != null){
+                            SharedPreferences.Editor editor = PreferenceManager.
+                                    getDefaultSharedPreferences(WeatherActivity.this).edit();
+                            editor.putString("aqiweather",responseText);
+                            editor.apply();
+                            ShowAQIWeatherInfo(aqiweather);
+                        }else{
+                            Toast.makeText(WeatherActivity.this,"获取天气信息失败",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+            }
+        });
         swipeRefresh.setRefreshing(false);
     }
 
     //给布局赋值
     public void ShowWeatherInfo(Weather weather){
         String cityname = weather.basic.cityName;
-        String updateTime = "更新时间："+weather.basic.update.updateTime.split(" ")[1];
+        String updateTime = "更新时间："+weather.update.updateTime.split(" ")[1];
         String degree = weather.now.temperature+"°C";
         int deg = Integer.parseInt(weather.now.temperature);
         if(deg>30){
@@ -175,39 +215,45 @@ public class WeatherActivity extends AppCompatActivity {
             img = R.drawable.cold;
         }
         backimage.setImageResource(img);
-        String weatherInfo = weather.now.more.info;
+        String weatherInfo = weather.now.info;
         titleCity.setText(cityname);
         titleUpdateTime.setText(updateTime);
         degreeText.setText(degree);
         weatherInfoText.setText(weatherInfo);
         forecastLayout.removeAllViews();
-        for(Forecast forecast : weather.forecastList){
+        for(Daily_Forecast forecast : weather.forecastList){
             View view = LayoutInflater.from(this).inflate(R.layout.forecast_item,
                     forecastLayout,false);
             TextView dateText = (TextView) view.findViewById(R.id.date_text);
-            TextView infoText = (TextView) view.findViewById(R.id.info_text);
-            TextView maxText = (TextView) view.findViewById(R.id.max_text);
-            TextView minText = (TextView) view.findViewById(R.id.min_text);
+            TextView dayinfoText = (TextView) view.findViewById(R.id.dayinfo_text);
+            TextView tmpText = (TextView) view.findViewById(R.id.tmp_text);
             dateText.setText(forecast.date);
-            infoText.setText(forecast.more.info);
-            maxText.setText(forecast.temperature.max);
-            minText.setText(forecast.temperature.min);
+            dayinfoText.setText(forecast.day_info);
+            tmpText.setText(forecast.tmp_min+"°C"+" ~ "+forecast.tmp_max+"°C");
             forecastLayout.addView(view);
         }
-        if(weather.aqi!=null){
-            aqiText.setText(weather.aqi.city.aqi);
-            pm25Text.setText(weather.aqi.city.pm25);
-        }
-        String comfort = "舒适度：" + weather.suggestion.comfort.info;
-        String carwash = "洗车指数：" + weather.suggestion.carWash.info;
-        String sport = "运动建议：" + weather.suggestion.sport.info;
+        String comfort = "舒适度：" + weather.lifestylelist.get(0).info;
+        String drsg = "着装建议：" + weather.lifestylelist.get(1).info;
+        String sport = "运动建议：" + weather.lifestylelist.get(3).info;
         comfortText.setText(comfort);
-        carWashText.setText(carwash);
+        drsgText.setText(drsg);
         sportText.setText(sport);
         weatherLayout.setVisibility(View.VISIBLE);
 
         //后台服务定时更新数据
         Intent intent = new Intent(this, AutoUpdateService.class);
         startService(intent);
+    }
+    //给空气相关控件赋值
+    public void ShowAQIWeatherInfo(AQIWeather aqiweather){
+        if(aqiweather.aqi!=null){
+            aqititleText.setText("空气质量："+aqiweather.aqi.qlty);
+            aqiText.setText(aqiweather.aqi.aqi);
+            pm25Text.setText(aqiweather.aqi.pm25);
+        }else{
+            aqititleText.setText("空气质量：未知");
+            aqiText.setText("暂无数据");
+            pm25Text.setText("暂无数据");
+        }
     }
 }

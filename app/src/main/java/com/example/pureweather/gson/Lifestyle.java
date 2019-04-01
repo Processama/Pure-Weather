@@ -2,11 +2,8 @@ package com.example.pureweather.gson;
 
 import com.google.gson.annotations.SerializedName;
 
-public class Now {
-    @SerializedName("tmp")
-    public String temperature;
+public class Lifestyle {
 
-    @SerializedName("cond_txt")
+    @SerializedName("txt")
     public String info;
-
 }
