@@ -71,6 +71,8 @@ public class ChooseAreaFragment extends Fragment {
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
+
+        //根据省市县设置监听器
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -82,13 +84,23 @@ public class ChooseAreaFragment extends Fragment {
                     queryCounties();
                 }else if(currentLevel==LEVEL_COUNTY){
                     String weatherId = countyList.get(position).getWeatherId();
-                    Intent intent = new Intent(getActivity(), WeatherActivity.class);
-                    intent.putExtra("weather_id",weatherId);
-                    startActivity(intent);
-                    getActivity().finish();
+                    if(getActivity() instanceof MainActivity){
+                        Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                        intent.putExtra("weather_id",weatherId);
+                        startActivity(intent);
+                        getActivity().finish();
+                    }else{
+                        WeatherActivity activity = (WeatherActivity) getActivity();
+                        activity.drawerLayout.closeDrawers();
+                        activity.swipeRefresh.setRefreshing(true);
+                        activity.weatherId = weatherId;
+                        activity.requestWeather(weatherId);
+                    }
                 }
             }
         });
+
+        //返回事件
         backButton.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
@@ -102,6 +114,7 @@ public class ChooseAreaFragment extends Fragment {
         queryProvinces();
     }
 
+    //遍历全国省份
     public void queryProvinces(){
         titleText.setText("全国");
         backButton.setVisibility(View.GONE);
@@ -119,6 +132,8 @@ public class ChooseAreaFragment extends Fragment {
             queryFromServer(address,"province");
         }
     }
+
+    //遍历某个省全市
     private void queryCities(){
         titleText.setText(selectedProvince.getProvinceName());
         backButton.setVisibility(View.VISIBLE);
@@ -138,6 +153,8 @@ public class ChooseAreaFragment extends Fragment {
             queryFromServer(address,"city");
         }
     }
+
+    //遍历某个使市全县
     private void queryCounties(){
         titleText.setText(selectedCity.getCityName());
         backButton.setVisibility(View.VISIBLE);
@@ -158,6 +175,8 @@ public class ChooseAreaFragment extends Fragment {
             queryFromServer(address,"county");
         }
     }
+
+    //发送请求
     private void queryFromServer(String address,final String type){
         showProgressDialog();
         HttpUtil.sendOkHttpRequest(address, new Callback() {
@@ -201,6 +220,8 @@ public class ChooseAreaFragment extends Fragment {
             }
         });
     }
+
+    //进度条
     private void showProgressDialog(){
         if(progressDialog==null){
             progressDialog = new ProgressDialog(getActivity());
